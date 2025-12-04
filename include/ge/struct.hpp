@@ -54,7 +54,7 @@ namespace ge {
                 texture = newTexture;
                 return;
             }
-            void changeDirectionObject(ge::v3 dir, float angleRotation)
+            void changeDirectionObject(ge::v3 dir, float /*angleRotation*/)
             {
                 glm::vec3 direction = glm::normalize(glm::vec3(dir.x, dir.y, dir.z));
 
@@ -64,7 +64,7 @@ namespace ge {
                     worldUp = glm::vec3(0, 0, 1);
 
                 glm::vec3 right = glm::normalize(glm::cross(worldUp, direction));
-                glm::vec3 up    = glm::cross(direction, right);
+                glm::vec3 up = glm::cross(direction, right);
 
                 glm::mat4 rotMat(1.0f);
                 rotMat[0] = glm::vec4(right, 0.0);

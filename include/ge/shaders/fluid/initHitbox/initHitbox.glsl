@@ -86,6 +86,7 @@ float distancePointTriangle(vec3 p, vec3 a, vec3 b, vec3 c, vec3 normal)
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= nbCells) return;
+
     int z = int(i);
     int x = int(z / float(yHitBox * zHitBox));
     z -= x * yHitBox * zHitBox;
@@ -96,12 +97,8 @@ void main() {
     int ind = 0;
 
     for (int u = 0; u < nbTriangles; u += 1) {
-        vec3 a = triangles[u].a;
-        vec3 b = triangles[u].b;
-        vec3 c = triangles[u].c;
-        vec3 normal = triangles[u].normal;
+        float d = distancePointTriangle(position, triangles[u].a, triangles[u].b, triangles[u].c, triangles[u].normal);
 
-        float d = distancePointTriangle(position, a, b, c, normal);
         if (abs(d) < cellSize) {
             gridsHitbox[i * 64 + ind] = u;
             ind += 1;

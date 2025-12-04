@@ -1,5 +1,8 @@
 #pragma once
+
 #include <cmath>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace ge {
 
@@ -16,6 +19,10 @@ namespace ge {
             float len = length();
             if (len == 0.0f) return {0, 0};
             return {x / len, y / len};
+        }
+
+        glm::vec2 toGlm() const {
+            return {x, y};
         }
 
         v2 operator+(const v2& o) const { return {x + o.x, y + o.y}; }
@@ -41,6 +48,10 @@ namespace ge {
             return {x / len, y / len, z / len};
         }
 
+        glm::vec3 toGlm() const {
+            return {x, y, z};
+        }
+
         v3 operator+(const v3& o) const { return {x + o.x, y + o.y, z + o.z}; }
         v3 operator-(const v3& o) const { return {x - o.x, y - o.y, z - o.z}; }
         v3 operator*(float s) const { return {x * s, y * s, z * s}; }
@@ -63,6 +74,10 @@ namespace ge {
             float len = length();
             if (len == 0.0f) return {0, 0, 0, 0};
             return {x / len, y / len, z / len, w / len};
+        }
+
+        glm::vec4 toGlm() const {
+            return {x, y, z, w};
         }
 
         v4 operator+(const v4& o) const { return {x + o.x, y + o.y, z + o.z, w + o.w}; }

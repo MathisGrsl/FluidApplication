@@ -12,3 +12,4 @@
 #include "ge/interface.hpp"
 #include "ge/event.hpp"
 #include "ge/editor.hpp"
+#include "ge/fluid.hpp"

@@ -17,7 +17,7 @@ int main() {
 
     glfwMaximizeWindow(ge::window);
 
-    //initialisation();
+    initialisation();
     ge::loadMaps();
 
     double lastTime = glfwGetTime();

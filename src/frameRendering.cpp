@@ -182,6 +182,10 @@ int frameRendering(double deltaTime)
 
     ge::drawObjects(ge::objects);
 
+    glDepthMask(GL_FALSE);
+    ge::drawMolecule();
+    glDepthMask(GL_TRUE);
+
     if (ge::isEditing) {
         glClear(GL_DEPTH_BUFFER_BIT);
         ge::drawObjects(ge::nextObjects);
