@@ -1,6 +1,57 @@
 #include <iostream>
 #include "ge.hpp"
 
+void renderGridHitbox()
+{
+    glUseProgram(ge::shaderGrid);
+
+    glm::mat4 projection = glm::perspective(glm::radians(ge::fov), (float)ge::screenWidth / ge::screenHeight, 0.1f, 10000.0f);
+    glm::mat4 view = glm::lookAt(ge::camPos.toGlm(), ge::camPos.toGlm() + ge::camDir.toGlm(), glm::vec3(0, 1, 0));
+    glm::mat4 model = glm::mat4(1.0f);
+
+    glUniformMatrix4fv(glGetUniformLocation(ge::shaderGrid, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(glGetUniformLocation(ge::shaderGrid, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(ge::shaderGrid, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    glUniform3f(glGetUniformLocation(ge::shaderGrid, "lineColor"), 0.0f, 1.0f, 0.0f);
+
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+
+
+                float x0 = 0.0;
+                float y0 = 0.0;
+                float z0 = 0.0;
+                float x1 = (x0 + ge::xHitBox * ge::cellSize);
+                float y1 = (y0 + ge::yHitBox * ge::cellSize);
+                float z1 = (z0 + ge::zHitBox * ge::cellSize);
+
+                auto edge = [&](float ax, float ay, float az, float bx, float by, float bz) {
+                    glVertex3f(ax, ay, az);
+                    glVertex3f(bx, by, bz);
+                };
+
+                // 12 arêtes
+                edge(x0, y0, z0, x1, y0, z0);
+                edge(x0, y0, z0, x0, y1, z0);
+                edge(x0, y0, z0, x0, y0, z1);
+
+                edge(x1, y0, z0, x1, y1, z0);
+                edge(x1, y0, z0, x1, y0, z1);
+
+                edge(x0, y1, z0, x1, y1, z0);
+                edge(x0, y1, z0, x0, y1, z1);
+
+                edge(x0, y0, z1, x1, y0, z1);
+                edge(x0, y0, z1, x0, y1, z1);
+
+                edge(x1, y1, z0, x1, y1, z1);
+                edge(x1, y0, z1, x1, y1, z1);
+                edge(x0, y1, z1, x1, y1, z1);
+
+    glEnd();
+}
+
 void drawCursor()
 {
     float size = 7.0f;
@@ -138,39 +189,50 @@ void manageEditing()
 int frameRendering(double deltaTime)
 {
     ge::fps += 1;
+
+    if (ge::keyJustPressed(GLFW_KEY_L)) {
+        ge::simulationOn = !ge::simulationOn;
+    }
+
+    if (ge::simulationOn) {
+        ge::updateMolecules(deltaTime * ge::speed);
+    }
     
     ge::deplacementCamera(deltaTime);
 
-    manageEditing();
-    manageCreating();
+    if (!ge::simulationOn) {
+        manageEditing();
+        manageCreating();
+        if (!ge::isEditing && !ge::isCreating) {
+            ge::v3 impact;
+            ge::object::instanceData *result = ge::getObject(ge::screenWidth / 2, ge::screenHeight / 2, ge::objects, &impact, &ge::objTypeIsEditing);
 
-    if (!ge::isEditing && !ge::isCreating) {
-        ge::v3 impact;
-        ge::object::instanceData *result = ge::getObject(ge::screenWidth / 2, ge::screenHeight / 2, ge::objects, &impact, &ge::objTypeIsEditing);
+            if (result != ge::objectSelected && ge::objectSelected != nullptr) {
+                ge::objectSelected->texture = ge::objectSelectedOriginSetting.texture;
+            }
 
-        if (result != ge::objectSelected && ge::objectSelected != nullptr) {
-            ge::objectSelected->texture = ge::objectSelectedOriginSetting.texture;
+            if (result != ge::objectSelected && result != nullptr) {
+                ge::objectSelectedOriginSetting = *result;
+                if (ge::objTypeIsEditing != -1)
+                    result->changeTexture(ge::getIndiceTexture("edit"), ge::objects[ge::objTypeIsEditing]);
+            }
+
+            ge::objectSelected = result;
+        } else {
+            if (ge::mouseJustPressed(GLFW_MOUSE_BUTTON_LEFT))
+                ge::arrowSelected = ge::getObject(ge::mouseX, ge::mouseY, ge::nextObjects);
+            if (ge::mouseJustReleased(GLFW_MOUSE_BUTTON_LEFT))
+                ge::arrowSelected = nullptr;
         }
 
-        if (result != ge::objectSelected && result != nullptr) {
-            ge::objectSelectedOriginSetting = *result;
-            if (ge::objTypeIsEditing != -1)
-                result->changeTexture(ge::getIndiceTexture("edit"), ge::objects[ge::objTypeIsEditing]);
+        if (ge::objectSelected != nullptr && ge::keyJustPressed(GLFW_KEY_E) && !ge::isCreating) {
+            if (ge::isEditing)
+                glfwSetCursorPos(ge::window, ge::screenWidth / 2, ge::screenHeight / 2);
+            ge::isEditing = !ge::isEditing;
         }
-
-        ge::objectSelected = result;
-    } else {
-        if (ge::mouseJustPressed(GLFW_MOUSE_BUTTON_LEFT))
-            ge::arrowSelected = ge::getObject(ge::mouseX, ge::mouseY, ge::nextObjects);
-        if (ge::mouseJustReleased(GLFW_MOUSE_BUTTON_LEFT))
-            ge::arrowSelected = nullptr;
     }
 
-    if (ge::objectSelected != nullptr && ge::keyJustPressed(GLFW_KEY_E) && !ge::isCreating) {
-        if (ge::isEditing)
-            glfwSetCursorPos(ge::window, ge::screenWidth / 2, ge::screenHeight / 2);
-        ge::isEditing = !ge::isEditing;
-    }
+    
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -180,7 +242,10 @@ int frameRendering(double deltaTime)
     }
     ge::drawObjects(ge::previousObjects);
 
-    ge::drawObjects(ge::objects);
+    renderGridHitbox();
+
+    if (!ge::simulationOn)
+        ge::drawObjects(ge::objects);
 
     glDepthMask(GL_FALSE);
     ge::drawMolecule();

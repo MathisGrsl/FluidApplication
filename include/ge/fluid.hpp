@@ -56,7 +56,7 @@ namespace ge {
 
     inline float compressibilityFactor = 7.0f;
     inline float stiffness = 10.0f;
-    inline float speed = 0.00f;
+    inline float speed = 1.0f;
 
     inline float viscosity = 0.1;
 
@@ -97,21 +97,25 @@ namespace ge {
         glGenBuffers(1, &molecules);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, molecules);
         glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_STORAGE * sizeof(Molecule), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, molecules);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &triangles);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangles);
         glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_STORAGE * sizeof(Map), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, triangles);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &nbMolPerCell);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, nbMolPerCell);
         glBufferData(GL_SHADER_STORAGE_BUFFER, NB_CELLS * sizeof(int), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, nbMolPerCell);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &grids);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, grids);
         glBufferData(GL_SHADER_STORAGE_BUFFER, NB_CELLS * 64 * sizeof(int), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, grids);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         std::vector<int> init(NB_CELLS * 64, -1);
@@ -121,26 +125,31 @@ namespace ge {
                     init.size() * sizeof(int),
                     init.data(),
                     GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, gridsHitbox);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &pressures);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, pressures);
         glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_STORAGE * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, pressures);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &densities);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, densities);
         glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_STORAGE * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, densities);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &collisionFlagBuffer);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, collisionFlagBuffer);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, collisionFlagBuffer);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
         glGenBuffers(1, &captors);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, captors);
         glBufferData(GL_SHADER_STORAGE_BUFFER, 30 * sizeof(Map), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, captors);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 
@@ -163,19 +172,19 @@ namespace ge {
     inline void generateMolecules()
     {
         float spacing = 0.10;
-        int widthCount  = int(2.0 / spacing);
-        int lengthCount = int(2.0 / spacing);
+        int widthCount  = int(3.0 / spacing);
+        int lengthCount = int(3.0 / spacing);
         int perLayer    = widthCount * lengthCount;
 
-        for (int i = 0; i < 50000; i += 1) {
+        for (int i = 0; i < 80000; i += 1) {
             int x = i % widthCount;
             int y = (i / widthCount) % lengthCount;
             int z = i / perLayer;
             //v4(220/255.0, 200/255.0, 120/255.0, 0.4)
             newMolecule(
-                v4(44.0 + x * spacing,
-                0.2 + y * spacing + z * spacing / 5.5,
-                23.0 + z * spacing, 0.0),
+                v4(20 + x * spacing,
+                0.5 + y * spacing,
+                20 + z * spacing, 0.0),
                 v4(33/255.0, 166/255.0, 232/255.0, 0.4)
             );
         }
@@ -208,14 +217,16 @@ namespace ge {
         glUseProgram(shaderMolecule);
         glUniformMatrix4fv(glGetUniformLocation(shaderMolecule, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderMolecule, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform1f(glGetUniformLocation(shaderMolecule, "radius"), radiusMol);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
 
         glBindVertexArray(vao);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, moleculeCount);
 
-        glDisable(GL_BLEND);
+        glDepthMask(GL_FALSE);
         glBindVertexArray(0);
     }
 
@@ -225,7 +236,7 @@ namespace ge {
             for (auto& instance : object.instances) {
                 glm::mat4 model = glm::translate(glm::mat4(1.0f), instance.position.toGlm());
                 model = glm::rotate(model, instance.angle, glm::vec3(instance.rotation.x, instance.rotation.y, instance.rotation.z));
-
+                model = glm::scale(model, glm::vec3(instance.scale.x, instance.scale.y, instance.scale.z));
                 for (size_t i = 0; i < object.vertices.size(); i += 27) {
 
                     glm::vec4 p0(object.vertices[i + 0], object.vertices[i + 1], object.vertices[i + 2], 1.0f);
@@ -252,14 +263,14 @@ namespace ge {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, densities);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, gridsHitbox);
 
-        glUseProgram(shaderInitHitbox);
-        glUniform1f(glGetUniformLocation(shaderInitHitbox, "cellSize"), cellSize);
-        glUniform1i(glGetUniformLocation(shaderInitHitbox, "nbCells"), NB_CELLS);
-        glUniform1i(glGetUniformLocation(shaderInitHitbox, "nbTriangles"), triangleCount);
+        glUseProgram(ge::shaderInitHitbox);
+        glUniform1f(glGetUniformLocation(ge::shaderInitHitbox, "cellSize"), cellSize);
+        glUniform1i(glGetUniformLocation(ge::shaderInitHitbox, "nbCells"), NB_CELLS);
+        glUniform1i(glGetUniformLocation(ge::shaderInitHitbox, "nbTriangles"), triangleCount);
 
-        glUniform1i(glGetUniformLocation(shaderInitHitbox, "xHitBox"), int(xHitBox));
-        glUniform1i(glGetUniformLocation(shaderInitHitbox, "yHitBox"), int(yHitBox));
-        glUniform1i(glGetUniformLocation(shaderInitHitbox, "zHitBox"), int(zHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderInitHitbox, "xHitBox"), int(xHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderInitHitbox, "yHitBox"), int(yHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderInitHitbox, "zHitBox"), int(zHitBox));
 
         glDispatchCompute((NB_CELLS + 255) / 256, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -276,70 +287,70 @@ namespace ge {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, gridsHitbox);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, captors);
 
-        glUseProgram(shaderResetArray);
-        glUniform1i(glGetUniformLocation(shaderResetArray, "nbCells"), NB_CELLS);
-        glUniform1i(glGetUniformLocation(shaderResetArray, "nbMolecules"), moleculeCount);
-        glUniform1f(glGetUniformLocation(shaderResetArray, "deltaTime"), deltaTime);
+        glUseProgram(ge::shaderResetArray);
+        glUniform1i(glGetUniformLocation(ge::shaderResetArray, "nbCells"), NB_CELLS);
+        glUniform1i(glGetUniformLocation(ge::shaderResetArray, "nbMolecules"), moleculeCount);
+        glUniform1f(glGetUniformLocation(ge::shaderResetArray, "deltaTime"), deltaTime);
 
         glDispatchCompute((NB_CELLS + 255) / 256, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 
-        glUseProgram(shaderSortMolecule);
-        glUniform1i(glGetUniformLocation(shaderSortMolecule, "nbMolecules"), moleculeCount);
-        glUniform1f(glGetUniformLocation(shaderSortMolecule, "cellSize"), cellSize);
+        glUseProgram(ge::shaderSortMolecule);
+        glUniform1i(glGetUniformLocation(ge::shaderSortMolecule, "nbMolecules"), moleculeCount);
+        glUniform1f(glGetUniformLocation(ge::shaderSortMolecule, "cellSize"), cellSize);
 
-        glUniform1i(glGetUniformLocation(shaderSortMolecule, "xHitBox"), int(xHitBox));
-        glUniform1i(glGetUniformLocation(shaderSortMolecule, "yHitBox"), int(yHitBox));
-        glUniform1i(glGetUniformLocation(shaderSortMolecule, "zHitBox"), int(zHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderSortMolecule, "xHitBox"), int(xHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderSortMolecule, "yHitBox"), int(yHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderSortMolecule, "zHitBox"), int(zHitBox));
 
         glDispatchCompute((moleculeCount + 255) / 256, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    
-        glUseProgram(shaderDensity_pressure);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "deltaTime"), deltaTime);
-        glUniform1i(glGetUniformLocation(shaderDensity_pressure, "nbMolecules"), moleculeCount);
-        glUniform1i(glGetUniformLocation(shaderDensity_pressure, "nbTriangles"), triangleCount);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "mass"), massMol);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "cellSize"), cellSize);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "radiusEffect"), radiusEffect);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "liquidDensity"), liquidDensity);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "compressibilityFactor"), compressibilityFactor);
-        glUniform1f(glGetUniformLocation(shaderDensity_pressure, "stiffness"), stiffness);
 
-        glUniform1i(glGetUniformLocation(shaderDensity_pressure, "xHitBox"), int(xHitBox));
-        glUniform1i(glGetUniformLocation(shaderDensity_pressure, "yHitBox"), int(yHitBox));
-        glUniform1i(glGetUniformLocation(shaderDensity_pressure, "zHitBox"), int(zHitBox));
+        glUseProgram(ge::shaderDensity_pressure);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "deltaTime"), deltaTime);
+        glUniform1i(glGetUniformLocation(ge::shaderDensity_pressure, "nbMolecules"), moleculeCount);
+        glUniform1i(glGetUniformLocation(ge::shaderDensity_pressure, "nbTriangles"), triangleCount);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "mass"), massMol);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "cellSize"), cellSize);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "radiusEffect"), radiusEffect);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "liquidDensity"), liquidDensity);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "compressibilityFactor"), compressibilityFactor);
+        glUniform1f(glGetUniformLocation(ge::shaderDensity_pressure, "stiffness"), stiffness);
+
+        glUniform1i(glGetUniformLocation(ge::shaderDensity_pressure, "xHitBox"), int(xHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderDensity_pressure, "yHitBox"), int(yHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderDensity_pressure, "zHitBox"), int(zHitBox));
 
         glDispatchCompute((moleculeCount + 255) / 256, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
-    inline int update(float deltaTime)
+    inline int updateMolecules(float deltaTime)
     {
         InitPressuresStart(deltaTime);
 
-        glUseProgram(shaderPosition_collision);
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "deltaTime"), deltaTime);
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "nbMolecules"), moleculeCount);
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "nbTriangles"), triangleCount);
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "nbCaptors"), captorCount);
+        glUseProgram(ge::shaderPosition_collision);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "deltaTime"), deltaTime);
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "nbMolecules"), moleculeCount);
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "nbTriangles"), triangleCount);
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "nbCaptors"), captorCount);
 
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "liquidDensity"), liquidDensity);
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "radiusEffect"), radiusEffect);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "liquidDensity"), liquidDensity);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "radiusEffect"), radiusEffect);
 
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "radiusDensity"), radiusEffect);
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "radius"), radiusMol);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "radiusDensity"), radiusEffect);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "radius"), radiusMol);
 
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "cellSize"), cellSize);
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "mass"), massMol);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "cellSize"), cellSize);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "mass"), massMol);
 
-        glUniform1f(glGetUniformLocation(shaderPosition_collision, "viscosity"), viscosity);
+        glUniform1f(glGetUniformLocation(ge::shaderPosition_collision, "viscosity"), viscosity);
 
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "xHitBox"), int(xHitBox));
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "yHitBox"), int(yHitBox));
-        glUniform1i(glGetUniformLocation(shaderPosition_collision, "zHitBox"), int(zHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "xHitBox"), int(xHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "yHitBox"), int(yHitBox));
+        glUniform1i(glGetUniformLocation(ge::shaderPosition_collision, "zHitBox"), int(zHitBox));
 
         int zero = 0;
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, collisionFlagBuffer);

@@ -63,6 +63,7 @@ namespace ge {
         ge::shaderResetArray = ge::initShaderResetArray();
         ge::shaderDensity_pressure = ge::initShaderDensity_pressure();
         ge::shaderInitHitbox = ge::initShaderinitHitbox();
+        ge::shaderGrid = ge::initShaderGrid();
         return 0;
     }
 }

@@ -18,6 +18,7 @@ namespace ge {
     inline GLuint shaderResetArray = 0;
     inline GLuint shaderDensity_pressure = 0;
     inline GLuint shaderInitHitbox = 0;
+    inline GLuint shaderGrid = 0;
 
     inline void checkShaderCompileErrors(GLuint shader, const std::string& type) {
         GLint success;

@@ -4,7 +4,7 @@
 
 int main() {
 
-    if (ge::initWindow(30, 165) == -1)
+    if (ge::initWindow(30, 16500) == -1)
         return 1;
 
     glfwSetCursorPosCallback(ge::window, mouse_callback);
@@ -17,8 +17,8 @@ int main() {
 
     glfwMaximizeWindow(ge::window);
 
-    initialisation();
     ge::loadMaps();
+    initialisation();
 
     double lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(ge::window)) {
